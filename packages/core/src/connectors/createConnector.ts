@@ -44,16 +44,26 @@ export type CreateConnectorFn<
     setup?(): Promise<void>
     connect(
       parameters?:
-        | { chainId?: number | undefined; isReconnecting?: boolean | undefined; requests?: ({permissions: WalletGrantPermissionsParameters} | {message: string})[] }
+        | {
+            chainId?: number | undefined
+            isReconnecting?: boolean | undefined
+            requests?: (
+              | { permissions: WalletGrantPermissionsParameters }
+              | { message: string }
+            )[]
+          }
         | undefined,
-    ): Promise<{
-      accounts: readonly Address[]
-      chainId: number
-    } | {
-      accounts: Address[]
-      requestResponses: (WalletGrantPermissionsReturnType | Hex)[]
-      chainId: number
-    }>
+    ): Promise<
+      | {
+          accounts: readonly Address[]
+          chainId: number
+        }
+      | {
+          accounts: Address[]
+          requestResponses: (WalletGrantPermissionsReturnType | Hex)[]
+          chainId: number
+        }
+    >
     disconnect(): Promise<void>
     getAccounts(): Promise<readonly Address[]>
     getChainId(): Promise<number>

@@ -193,7 +193,7 @@ export function createConfig<
       connections: new Map<string, Connection>(),
       current: null,
       status: 'disconnected',
-      permissionsContext: ''
+      permissionsContext: '',
     } satisfies State
   }
 

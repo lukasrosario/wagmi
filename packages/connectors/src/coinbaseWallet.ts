@@ -15,14 +15,14 @@ import type {
 } from 'cbw-sdk'
 import {
   type AddEthereumChainParameter,
+  type Address,
   type Hex,
   type ProviderRpcError,
   SwitchChainError,
   UserRejectedRequestError,
+  type WalletGrantPermissionsReturnType,
   getAddress,
   numberToHex,
-  type Address,
-  type WalletGrantPermissionsReturnType,
   stringToHex,
 } from 'viem'
 
@@ -99,25 +99,26 @@ function version4(parameters: Version4Parameters) {
         const provider = await this.getProvider()
         const response = (await provider.request({
           method: 'wallet_connect',
-          params: requests ? {requests: requests.map((request) => {
-            if ('permissions' in request) {
-              return {
-                method: 'wallet_grantPermissions',
-                params: request.permissions
+          params: requests
+            ? {
+                requests: requests.map((request) => {
+                  if ('permissions' in request) {
+                    return {
+                      method: 'wallet_grantPermissions',
+                      params: request.permissions,
+                    }
+                  }
+                  return {
+                    method: 'personal_sign',
+                    params: [stringToHex(request.message)],
+                  }
+                }),
               }
-            } else if ('message' in request) {
-              return {
-                method: 'personal_sign',
-                params: [stringToHex(request.message)]
-              }
-            }
-            return undefined
-          })} : undefined,
+            : undefined,
         })) as {
           addresses: Address[]
           requestResponses: (WalletGrantPermissionsReturnType | Hex)[]
         }
-        console.log('in viem:', response)
         const accounts = response.addresses.map((x) => getAddress(x))
         const requestResponses = response.requestResponses
 
@@ -354,20 +355,22 @@ function version3(parameters: Version3Parameters) {
         const provider = await this.getProvider()
         const response = (await provider.request({
           method: 'wallet_connect',
-          params: requests ? {requests: requests.map((request) => {
-            if ('permissions' in request) {
-              return {
-                method: 'wallet_grantPermissions',
-                params: request.permissions
+          params: requests
+            ? {
+                requests: requests.map((request) => {
+                  if ('permissions' in request) {
+                    return {
+                      method: 'wallet_grantPermissions',
+                      params: request.permissions,
+                    }
+                  }
+                  return {
+                    method: 'personal_sign',
+                    params: [request.message],
+                  }
+                }),
               }
-            } else if ('message' in request) {
-              return {
-                method: 'personal_sign',
-                params: [request.message]
-              }
-            }
-            return undefined
-          })} : undefined,
+            : undefined,
         })) as {
           addresses: Address[]
           requestResponses: (WalletGrantPermissionsReturnType | Hex)[]
