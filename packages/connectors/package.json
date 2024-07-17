@@ -1,7 +1,7 @@
 {
-  "name": "@wagmi/connectors",
+  "name": "@lukasrosario/connectors",
   "description": "Collection of connectors for Wagmi",
-  "version": "5.0.18",
+  "version": "14.0.0",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -35,9 +35,9 @@
     "./package.json": "./package.json"
   },
   "peerDependencies": {
-    "@wagmi/core": "workspace:*",
+    "@wagmi/core": "latest",
     "typescript": ">=5.0.4",
-    "viem": "2.x"
+    "viem": "latest"
   },
   "peerDependenciesMeta": {
     "typescript": {
@@ -53,8 +53,11 @@
     "@walletconnect/modal": "2.6.2",
     "cbw-sdk": "npm:@coinbase/wallet-sdk@3.9.3"
   },
+  "resolutions": {
+    "@coinbase/wallet-sdk": "npm:@lukasrosario/wallet-sdk@7.0.0"
+  },
   "devDependencies": {
-    "@wagmi/core": "workspace:*",
+    "@wagmi/core": "latest",
     "msw": "^2.2.14"
   },
   "contributors": ["awkweb.eth <t@wevm.dev>", "jxom.eth <j@wevm.dev>"],

@@ -2,6 +2,8 @@ import type {
   Address,
   ResourceUnavailableRpcErrorType,
   UserRejectedRequestErrorType,
+  WalletGrantPermissionsParameters,
+  WalletGrantPermissionsReturnType,
 } from 'viem'
 
 import type { CreateConnectorFn } from '../connectors/createConnector.js'
@@ -18,9 +20,10 @@ export type ConnectParameters<config extends Config = Config> = Evaluate<
   ChainIdParameter<config> & {
     connector: Connector | CreateConnectorFn
   }
->
+> & {requests: ({permissions: WalletGrantPermissionsParameters} | {message: string})[]}
 
 export type ConnectReturnType<config extends Config = Config> = {
+  requestResponses: (WalletGrantPermissionsReturnType | `0x${string}`)[]
   accounts: readonly [Address, ...Address[]]
   chainId:
     | config['chains'][number]['id']
@@ -55,8 +58,10 @@ export async function connect<config extends Config>(
     config.setState((x) => ({ ...x, status: 'connecting' }))
     connector.emitter.emit('message', { type: 'connecting' })
 
-    const data = await connector.connect({ chainId: parameters.chainId })
+    const data = await connector.connect({ chainId: parameters.chainId, requests: parameters.requests as ConnectParameters['requests'] })
     const accounts = data.accounts as readonly [Address, ...Address[]]
+    console.log('in wagmi core', data)
+    const requestResponses = (data as any).requestResponses as (WalletGrantPermissionsReturnType | `0x${string}`)[]
 
     connector.emitter.off('connect', config._internal.events.connect)
     connector.emitter.on('change', config._internal.events.change)
@@ -70,11 +75,15 @@ export async function connect<config extends Config>(
         chainId: data.chainId,
         connector: connector,
       }),
+      permissionsContext: (requestResponses.find((requestResponse) => {
+        return requestResponse instanceof Object && 'permissions' in requestResponse
+      }) as WalletGrantPermissionsReturnType)?.permissionsContext,
       current: connector.uid,
       status: 'connected',
+
     }))
 
-    return { accounts, chainId: data.chainId }
+    return { accounts, chainId: data.chainId, requestResponses }
   } catch (error) {
     config.setState((x) => ({
       ...x,

@@ -3,8 +3,11 @@ import type {
   Address,
   Chain,
   Client,
+  Hex,
   ProviderConnectInfo,
   ProviderMessage,
+  WalletGrantPermissionsParameters,
+  WalletGrantPermissionsReturnType,
 } from 'viem'
 
 import type { Emitter } from '../createEmitter.js'
@@ -41,10 +44,14 @@ export type CreateConnectorFn<
     setup?(): Promise<void>
     connect(
       parameters?:
-        | { chainId?: number | undefined; isReconnecting?: boolean | undefined }
+        | { chainId?: number | undefined; isReconnecting?: boolean | undefined; requests?: ({permissions: WalletGrantPermissionsParameters} | {message: string})[] }
         | undefined,
     ): Promise<{
       accounts: readonly Address[]
+      chainId: number
+    } | {
+      accounts: Address[]
+      requestResponses: (WalletGrantPermissionsReturnType | Hex)[]
       chainId: number
     }>
     disconnect(): Promise<void>

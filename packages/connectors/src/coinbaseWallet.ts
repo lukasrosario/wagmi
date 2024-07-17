@@ -21,6 +21,9 @@ import {
   UserRejectedRequestError,
   getAddress,
   numberToHex,
+  type Address,
+  type WalletGrantPermissionsReturnType,
+  stringToHex,
 } from 'viem'
 
 type Version = '3' | '4'
@@ -91,14 +94,32 @@ function version4(parameters: Version4Parameters) {
     name: 'Coinbase Wallet',
     supportsSimulation: true,
     type: coinbaseWallet.type,
-    async connect({ chainId } = {}) {
+    async connect({ chainId, requests } = {}) {
       try {
         const provider = await this.getProvider()
-        const accounts = (
-          (await provider.request({
-            method: 'eth_requestAccounts',
-          })) as string[]
-        ).map((x) => getAddress(x))
+        const response = (await provider.request({
+          method: 'wallet_connect',
+          params: requests ? {requests: requests.map((request) => {
+            if ('permissions' in request) {
+              return {
+                method: 'wallet_grantPermissions',
+                params: request.permissions
+              }
+            } else if ('message' in request) {
+              return {
+                method: 'personal_sign',
+                params: [stringToHex(request.message)]
+              }
+            }
+            return undefined
+          })} : undefined,
+        })) as {
+          addresses: Address[]
+          requestResponses: (WalletGrantPermissionsReturnType | Hex)[]
+        }
+        console.log('in viem:', response)
+        const accounts = response.addresses.map((x) => getAddress(x))
+        const requestResponses = response.requestResponses
 
         if (!accountsChanged) {
           accountsChanged = this.onAccountsChanged.bind(this)
@@ -123,10 +144,10 @@ function version4(parameters: Version4Parameters) {
           currentChainId = chain?.id ?? currentChainId
         }
 
-        return { accounts, chainId: currentChainId }
+        return { accounts, chainId: currentChainId, requestResponses }
       } catch (error) {
         if (
-          /(user closed modal|accounts received is empty|user denied account|request rejected)/i.test(
+          /(user closed modal|accounts received is empty|user denied account)/i.test(
             (error as Error).message,
           )
         )
@@ -328,14 +349,31 @@ function version3(parameters: Version3Parameters) {
     name: 'Coinbase Wallet',
     supportsSimulation: true,
     type: coinbaseWallet.type,
-    async connect({ chainId } = {}) {
+    async connect({ chainId, requests } = {}) {
       try {
         const provider = await this.getProvider()
-        const accounts = (
-          (await provider.request({
-            method: 'eth_requestAccounts',
-          })) as string[]
-        ).map((x) => getAddress(x))
+        const response = (await provider.request({
+          method: 'wallet_connect',
+          params: requests ? {requests: requests.map((request) => {
+            if ('permissions' in request) {
+              return {
+                method: 'wallet_grantPermissions',
+                params: request.permissions
+              }
+            } else if ('message' in request) {
+              return {
+                method: 'personal_sign',
+                params: [request.message]
+              }
+            }
+            return undefined
+          })} : undefined,
+        })) as {
+          addresses: Address[]
+          requestResponses: (WalletGrantPermissionsReturnType | Hex)[]
+        }
+        const accounts = response.addresses.map((x) => getAddress(x))
+        const requestResponses = response.requestResponses
 
         if (!accountsChanged) {
           accountsChanged = this.onAccountsChanged.bind(this)
@@ -360,7 +398,7 @@ function version3(parameters: Version3Parameters) {
           currentChainId = chain?.id ?? currentChainId
         }
 
-        return { accounts, chainId: currentChainId }
+        return { accounts, chainId: currentChainId, requestResponses }
       } catch (error) {
         if (
           /(user closed modal|accounts received is empty|user denied account)/i.test(

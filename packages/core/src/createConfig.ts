@@ -193,6 +193,7 @@ export function createConfig<
       connections: new Map<string, Connection>(),
       current: null,
       status: 'disconnected',
+      permissionsContext: ''
     } satisfies State
   }
 
@@ -528,6 +529,7 @@ export type State<
   connections: Map<string, Connection>
   current: string | null
   status: 'connected' | 'connecting' | 'disconnected' | 'reconnecting'
+  permissionsContext: string
 }
 
 export type PartializedState = Evaluate<
