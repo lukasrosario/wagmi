@@ -5,10 +5,15 @@ import { ConnectorNotConnectedError } from '../../errors/config.js'
 import { filterQueryOptions } from '../../query/utils.js'
 import type { ScopeKeyParameter } from '../../types/properties.js'
 import type { Compute, ExactPartial } from '../../types/utils.js'
-import { type GetActivePermissionsReturnType, type GetActivePermissionsParameters, getActivePermissions, type GetActivePermissionsErrorType } from '../actions/getActivePermissions.js'
+import {
+  type GetActivePermissionsErrorType,
+  type GetActivePermissionsParameters,
+  type GetActivePermissionsReturnType,
+  getActivePermissions,
+} from '../actions/getActivePermissions.js'
 
 export type GetActivePermissionsOptions = Compute<
-    ExactPartial<GetActivePermissionsParameters> & ScopeKeyParameter
+  ExactPartial<GetActivePermissionsParameters> & ScopeKeyParameter
 >
 
 export function getActivePermissionsQueryOptions<config extends Config>(
@@ -38,8 +43,12 @@ export type GetActivePermissionsQueryFnData = GetActivePermissionsReturnType
 
 export type GetActivePermissionsData = GetActivePermissionsQueryFnData
 
-export function getActivePermissionsQueryKey(options: GetActivePermissionsOptions) {
+export function getActivePermissionsQueryKey(
+  options: GetActivePermissionsOptions,
+) {
   return ['activePermissions', filterQueryOptions(options)] as const
 }
 
-export type GetActivePermissionsQueryKey = ReturnType<typeof getActivePermissionsQueryKey>
+export type GetActivePermissionsQueryKey = ReturnType<
+  typeof getActivePermissionsQueryKey
+>

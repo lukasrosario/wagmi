@@ -42,7 +42,7 @@ export {
   type GrantPermissionsErrorType,
   type GrantPermissionsParameters,
   type GrantPermissionsReturnType,
-  grantPermissions
+  grantPermissions,
 } from '../experimental/actions/grantPermissions.js'
 
 export {

@@ -10,11 +10,10 @@ import {
 } from '../../actions/getConnectorClient.js'
 import type { Config } from '../../createConfig.js'
 import type { BaseErrorType, ErrorType } from '../../errors/base.js'
-import type {
-  ConnectorParameter,
-} from '../../types/properties.js'
+import type { ConnectorParameter } from '../../types/properties.js'
 
-export type GrantPermissionsParameters = viem_GrantPermissionsParameters & ConnectorParameter
+export type GrantPermissionsParameters = viem_GrantPermissionsParameters &
+  ConnectorParameter
 
 export type GrantPermissionsReturnType = viem_GrantPermissionsReturnType
 
@@ -25,9 +24,7 @@ export type GrantPermissionsErrorType =
   | BaseErrorType
   | ErrorType
 
-export async function grantPermissions<
-  config extends Config,
->(
+export async function grantPermissions<config extends Config>(
   config: config,
   parameters: GrantPermissionsParameters,
 ): Promise<GrantPermissionsReturnType> {

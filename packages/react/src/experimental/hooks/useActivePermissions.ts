@@ -3,13 +3,13 @@
 import type { Config, ResolvedRegister } from '@wagmi/core'
 
 import {
-    type GetActivePermissionsData,
-    type GetActivePermissionsErrorType,
-    type GetActivePermissionsOptions,
-    type GetActivePermissionsQueryFnData,
-    type GetActivePermissionsQueryKey,
-    getActivePermissionsQueryOptions,
-  } from '@wagmi/core/experimental'
+  type GetActivePermissionsData,
+  type GetActivePermissionsErrorType,
+  type GetActivePermissionsOptions,
+  type GetActivePermissionsQueryFnData,
+  type GetActivePermissionsQueryKey,
+  getActivePermissionsQueryOptions,
+} from '@wagmi/core/experimental'
 import type { Compute } from '@wagmi/core/internal'
 
 import { useAccount } from '../../hooks/useAccount.js'
@@ -31,8 +31,9 @@ export type UseActivePermissionsParameters<
     >
 >
 
-export type UseActivePermissionsReturnType<selectData = GetActivePermissionsData> =
-  UseQueryReturnType<selectData, GetActivePermissionsErrorType>
+export type UseActivePermissionsReturnType<
+  selectData = GetActivePermissionsData,
+> = UseQueryReturnType<selectData, GetActivePermissionsErrorType>
 
 export function useActivePermissions<
   config extends Config = ResolvedRegister['config'],

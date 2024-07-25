@@ -4,11 +4,11 @@ import { useMutation } from '@tanstack/react-query'
 import type { Config, ResolvedRegister } from '@wagmi/core'
 import {
   type GrantPermissionsData,
-    type GrantPermissionsErrorType,
-    type GrantPermissionsMutate,
-    type GrantPermissionsMutateAsync,
-    type GrantPermissionsVariables,
-    grantPermissionsMutationOptions,
+  type GrantPermissionsErrorType,
+  type GrantPermissionsMutate,
+  type GrantPermissionsMutateAsync,
+  type GrantPermissionsVariables,
+  grantPermissionsMutationOptions,
 } from '@wagmi/core/experimental'
 import type { Compute } from '@wagmi/core/internal'
 
@@ -20,32 +20,31 @@ import type {
 } from '../../utils/query.js'
 
 export type UseGrantPermissionsParameters<
-    config extends Config = Config,
-    context = unknown,
+  config extends Config = Config,
+  context = unknown,
 > = Compute<
-ConfigParameter<config> & {
+  ConfigParameter<config> & {
     mutation?:
-    | UseMutationParameters<
-        GrantPermissionsData,
-        GrantPermissionsErrorType,
-        GrantPermissionsVariables,
-        context>
-    | undefined
-}>
+      | UseMutationParameters<
+          GrantPermissionsData,
+          GrantPermissionsErrorType,
+          GrantPermissionsVariables,
+          context
+        >
+      | undefined
+  }
+>
 
-export type UseGrantPermissionsReturnType<
-context = unknown
-> = Compute<
-    UseMutationReturnType<
-        GrantPermissionsData,
-        GrantPermissionsErrorType,
-        GrantPermissionsVariables,
-        context
-    > & {
-        grantPermissions: GrantPermissionsMutate<context>
-        grantPermissionsAsync: GrantPermissionsMutateAsync<context>
-    
-    }
+export type UseGrantPermissionsReturnType<context = unknown> = Compute<
+  UseMutationReturnType<
+    GrantPermissionsData,
+    GrantPermissionsErrorType,
+    GrantPermissionsVariables,
+    context
+  > & {
+    grantPermissions: GrantPermissionsMutate<context>
+    grantPermissionsAsync: GrantPermissionsMutateAsync<context>
+  }
 >
 
 export function useGrantPermissions<
