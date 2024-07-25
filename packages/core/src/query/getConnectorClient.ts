@@ -22,7 +22,7 @@ export type GetConnectorClientOptions<
 export function getConnectorClientQueryOptions<
   config extends Config,
   chainId extends config['chains'][number]['id'],
->(config: config, options: GetConnectorClientOptions<config, chainId> = {}) {
+>(config: config, options: GetConnectorClientOptions<config, chainId> = {}): any {
   return {
     gcTime: 0,
     async queryFn({ queryKey }) {

@@ -38,6 +38,20 @@ export {
   writeContracts,
 } from '../experimental/actions/writeContracts.js'
 
+export {
+  type GrantPermissionsErrorType,
+  type GrantPermissionsParameters,
+  type GrantPermissionsReturnType,
+  grantPermissions
+} from '../experimental/actions/grantPermissions.js'
+
+export {
+  type GetActivePermissionsErrorType,
+  type GetActivePermissionsParameters,
+  type GetActivePermissionsReturnType,
+  getActivePermissions,
+} from '../experimental/actions/getActivePermissions.js'
+
 ////////////////////////////////////////////////////////////////////////////////
 // Tanstack Query
 ////////////////////////////////////////////////////////////////////////////////
@@ -83,3 +97,20 @@ export {
   type WriteContractsVariables,
   writeContractsMutationOptions,
 } from '../experimental/query/writeContracts.js'
+
+export {
+  type GrantPermissionsData,
+  type GrantPermissionsMutate,
+  type GrantPermissionsMutateAsync,
+  type GrantPermissionsVariables,
+  grantPermissionsMutationOptions,
+} from '../experimental/query/grantPermissions.js'
+
+export {
+  type GetActivePermissionsData,
+  type GetActivePermissionsOptions,
+  type GetActivePermissionsQueryFnData,
+  type GetActivePermissionsQueryKey,
+  getActivePermissionsQueryOptions,
+  getActivePermissionsQueryKey,
+} from '../experimental/query/getActivePermissions.js'

@@ -104,5 +104,5 @@ export function useConnectorClient<
     queryKey,
     enabled,
     staleTime: Number.POSITIVE_INFINITY,
-  })
+  }) as any
 }

@@ -32,3 +32,15 @@ export {
   type UseWriteContractsReturnType,
   useWriteContracts,
 } from '../experimental/hooks/useWriteContracts.js'
+
+export {
+  type UseGrantPermissionsParameters,
+  type UseGrantPermissionsReturnType,
+  useGrantPermissions,
+} from '../experimental/hooks/useGrantPermissions.js'
+
+export {
+  type UseActivePermissionsParameters,
+  type UseActivePermissionsReturnType,
+  useActivePermissions,
+} from '../experimental/hooks/useActivePermissions.js'
