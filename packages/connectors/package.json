@@ -1,7 +1,7 @@
 {
   "name": "@lukasrosario/wagmi-connectors",
   "description": "Collection of connectors for Wagmi",
-  "version": "5.0.25-permissionedkeysalpha.2",
+  "version": "5.0.25-permissionedkeysalpha.3",
   "license": "MIT",
   "repository": {
     "type": "git",
