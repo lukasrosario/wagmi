@@ -1,7 +1,7 @@
 {
   "name": "@lukasrosario/wagmi-connectors",
   "description": "Collection of connectors for Wagmi",
-  "version": "5.0.25-permissionedkeysalpha.3",
+  "version": "5.0.25-permissionedkeysalpha.5",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -45,7 +45,7 @@
     }
   },
   "dependencies": {
-    "@coinbase/wallet-sdk": "npm:@lukasrosario/wallet-sdk@4.0.4-permissionedkeysalpha.8",
+    "@coinbase/wallet-sdk": "npm:@lukasrosario/wallet-sdk@4.0.4-permissionedkeysalpha.9",
     "@metamask/sdk": "0.26.4",
     "@safe-global/safe-apps-provider": "0.18.3",
     "@safe-global/safe-apps-sdk": "9.1.0",
