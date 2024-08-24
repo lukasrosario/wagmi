@@ -156,14 +156,14 @@ function version4(parameters: Version4Parameters) {
     async getAccounts() {
       const provider = await this.getProvider()
       return (
-        await provider.request<string[]>({
+        await (provider.request({
           method: 'eth_accounts',
         })
-      ).map((x) => getAddress(x))
+      ) as string[]).map((x) => getAddress(x))
     },
     async getChainId() {
       const provider = await this.getProvider()
-      const chainId = await provider.request<Hex>({
+      const chainId = await provider.request({
         method: 'eth_chainId',
       })
       return Number(chainId)

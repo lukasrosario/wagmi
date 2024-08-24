@@ -1,9 +1,11 @@
-import type { Account, Chain } from 'viem'
+import type { Account, Chain, Hash, Hex } from 'viem'
 import {
   type SendCallsErrorType as viem_SendCallsErrorType,
   type SendCallsParameters as viem_SendCallsParameters,
   type SendCallsReturnType as viem_SendCallsReturnType,
   sendCalls as viem_sendCalls,
+  prepareCalls as viem_prepareCalls,
+  sendPreparedCalls as viem_sendPreparedCalls
 } from 'viem/experimental'
 
 import {
@@ -31,7 +33,7 @@ export type SendCallsParameters<
       ChainIdParameter<config, chainId> &
       ConnectorParameter
   >
-}[number]
+}[number] & {prepareAndSign?: boolean, sign?: (hash: Hash) => Promise<Hex>, signatureData?: {type: 'permissions', values: {context: string}}}
 
 export type SendCallsReturnType = viem_SendCallsReturnType
 
@@ -52,13 +54,34 @@ export async function sendCalls<
   config: config,
   parameters: SendCallsParameters<config, chainId>,
 ): Promise<SendCallsReturnType> {
-  const { account, chainId, connector, calls, ...rest } = parameters
-
+  const { account, chainId, connector, calls, sign, prepareAndSign, signatureData, capabilities, ...rest } = parameters
+  
   const client = await getConnectorClient(config, {
     account,
     chainId,
     connector,
   })
+
+  if (prepareAndSign && sign && signatureData) {
+    const preparedCalls = await viem_prepareCalls(client, {
+      ...(rest as any),
+      ...(account ? { account } : {}),
+      calls,
+      capabilities,
+      chain: chainId ? { id: chainId } : undefined,
+    })
+    const signature = await sign(preparedCalls[0].signatureRequest.hash);
+    return viem_sendPreparedCalls(client, {
+      preparedCalls: preparedCalls[0].preparedCalls,
+      signatureData: {
+        ...signatureData,
+        values: {
+          ...signatureData.values,
+          signature
+        }
+      }
+    } as any)
+  }
 
   return viem_sendCalls(client, {
     ...(rest as any),

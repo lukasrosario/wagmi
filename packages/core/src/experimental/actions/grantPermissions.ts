@@ -31,7 +31,7 @@ export async function grantPermissions<config extends Config>(
   const { connector, permissions, ...rest } = parameters
 
   const client = await getConnectorClient(config, {
-    account: permissions[0]?.account,
+    account: permissions[0]?.address,
     chainId: permissions[0]?.chainId,
     connector,
   })
