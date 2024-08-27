@@ -72,7 +72,7 @@ export async function sendCalls<
     connector,
   })
 
-  if (!!signatureOverride) {
+  if (signatureOverride) {
     const preparedCalls = await viem_prepareCalls(client, {
       ...(rest as any),
       ...(account ? { account } : {}),
@@ -80,7 +80,10 @@ export async function sendCalls<
       capabilities,
       chain: chainId ? { id: chainId } : undefined,
     })
-    const signature = typeof signatureOverride === 'function' ? await signatureOverride(preparedCalls[0].signatureRequest.hash) : signatureOverride
+    const signature =
+      typeof signatureOverride === 'function'
+        ? await signatureOverride(preparedCalls[0].signatureRequest.hash)
+        : signatureOverride
     return viem_sendPreparedCalls(client, {
       preparedCalls: preparedCalls[0].preparedCalls,
       context: preparedCalls[0].context,
