@@ -34,9 +34,7 @@ export type SendCallsParameters<
       ConnectorParameter
   >
 }[number] & {
-  prepareAndSign?: boolean
-  sign?: (hash: Hash) => Promise<Hex>
-  signatureData?: { type: 'permissions'; values: { context: string } }
+  signatureOverride?: Hex | ((hash: Hash) => Promise<Hex>)
 }
 
 export type SendCallsReturnType = viem_SendCallsReturnType
@@ -63,9 +61,7 @@ export async function sendCalls<
     chainId,
     connector,
     calls,
-    sign,
-    prepareAndSign,
-    signatureData,
+    signatureOverride,
     capabilities,
     ...rest
   } = parameters
@@ -76,7 +72,7 @@ export async function sendCalls<
     connector,
   })
 
-  if (prepareAndSign && sign && signatureData) {
+  if (!!signatureOverride) {
     const preparedCalls = await viem_prepareCalls(client, {
       ...(rest as any),
       ...(account ? { account } : {}),
@@ -84,16 +80,12 @@ export async function sendCalls<
       capabilities,
       chain: chainId ? { id: chainId } : undefined,
     })
-    const signature = await sign(preparedCalls[0].signatureRequest.hash)
+    const signature = typeof signatureOverride === 'function' ? await signatureOverride(preparedCalls[0].signatureRequest.hash) : signatureOverride
     return viem_sendPreparedCalls(client, {
       preparedCalls: preparedCalls[0].preparedCalls,
-      signatureData: {
-        ...signatureData,
-        values: {
-          ...signatureData.values,
-          signature,
-        },
-      },
+      context: preparedCalls[0].context,
+      signature,
+      chain: chainId ? { id: chainId } : undefined,
     } as any)
   }
 

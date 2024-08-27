@@ -60,8 +60,8 @@ importers:
         specifier: 5.5.2
         version: 5.5.2
       viem:
-        specifier: npm:@lukasrosario/viem@2.17.4-permissionedkeysalpha.16
-        version: '@lukasrosario/viem@2.17.4-permissionedkeysalpha.16(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8)'
+        specifier: npm:@lukasrosario/viem@2.17.4-sessionkeys.5
+        version: '@lukasrosario/viem@2.17.4-sessionkeys.5(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8)'
       vitest:
         specifier: ^1.6.0
         version: 1.6.0(@types/node@20.14.8)(@vitest/ui@1.6.0)(happy-dom@12.10.3)(terser@5.31.1)
@@ -154,8 +154,8 @@ importers:
   packages/connectors:
     dependencies:
       '@coinbase/wallet-sdk':
-        specifier: npm:@lukasrosario/wallet-sdk@4.1.0-demo.6
-        version: '@lukasrosario/wallet-sdk@4.1.0-demo.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)'
+        specifier: npm:@lukasrosario/wallet-sdk@4.1.0-sessionkeys.1
+        version: '@lukasrosario/wallet-sdk@4.1.0-sessionkeys.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)'
       '@metamask/sdk':
         specifier: 0.26.4
         version: 0.26.4(bufferutil@4.0.8)(encoding@0.1.13)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rollup@4.18.0)(utf-8-validate@5.0.10)
@@ -235,17 +235,17 @@ importers:
   packages/react:
     dependencies:
       '@wagmi/connectors':
-        specifier: npm:@lukasrosario/wagmi-connectors@5.0.25-permissionedkeysalpha.7
-        version: '@lukasrosario/wagmi-connectors@5.0.25-permissionedkeysalpha.7(@lukasrosario/viem@2.17.4-permissionedkeysalpha.16(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8))(@lukasrosario/wagmi-core@2.12.1-permissionedkeysalpha.12(@lukasrosario/viem@2.17.4-permissionedkeysalpha.16(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8))(@tanstack/query-core@5.45.0)(@types/react@18.3.3)(react@18.3.1)(typescript@5.5.2))(@types/react@18.3.3)(bufferutil@4.0.8)(encoding@0.1.13)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8)'
+        specifier: npm:@lukasrosario/wagmi-connectors@5.0.25-sessionkeys.1
+        version: '@lukasrosario/wagmi-connectors@5.0.25-sessionkeys.1(@lukasrosario/viem@2.17.4-sessionkeys.5(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8))(@lukasrosario/wagmi-core@2.12.1-sessionkeys.2(@lukasrosario/viem@2.17.4-sessionkeys.5(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8))(@tanstack/query-core@5.45.0)(@types/react@18.3.3)(react@18.3.1)(typescript@5.5.2))(@types/react@18.3.3)(bufferutil@4.0.8)(encoding@0.1.13)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8)'
       '@wagmi/core':
-        specifier: npm:@lukasrosario/wagmi-core@2.12.1-permissionedkeysalpha.12
-        version: '@lukasrosario/wagmi-core@2.12.1-permissionedkeysalpha.12(@lukasrosario/viem@2.17.4-permissionedkeysalpha.16(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8))(@tanstack/query-core@5.45.0)(@types/react@18.3.3)(react@18.3.1)(typescript@5.5.2)'
+        specifier: npm:@lukasrosario/wagmi-core@2.12.1-sessionkeys.2
+        version: '@lukasrosario/wagmi-core@2.12.1-sessionkeys.2(@lukasrosario/viem@2.17.4-sessionkeys.5(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8))(@tanstack/query-core@5.45.0)(@types/react@18.3.3)(react@18.3.1)(typescript@5.5.2)'
       use-sync-external-store:
         specifier: 1.2.0
         version: 1.2.0(react@18.3.1)
       viem:
-        specifier: npm:@lukasrosario/viem@2.17.4-permissionedkeysalpha.16
-        version: '@lukasrosario/viem@2.17.4-permissionedkeysalpha.16(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8)'
+        specifier: npm:@lukasrosario/viem@2.17.4-sessionkeys.5
+        version: '@lukasrosario/viem@2.17.4-sessionkeys.5(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8)'
     devDependencies:
       '@tanstack/react-query':
         specifier: '>=5.45.1'
@@ -1628,16 +1628,16 @@ packages:
   '@lit/reactive-element@1.6.3':
     resolution: {integrity: sha512-QuTgnG52Poic7uM1AN5yJ09QMe0O28e10XzSvWDz02TJiiKee4stsiownEIadWm8nYzyDAyT+gKzUoZmiWQtsQ==}
 
-  '@lukasrosario/viem@2.17.4-permissionedkeysalpha.16':
-    resolution: {integrity: sha512-AJiPlqEYkoLTIzEEekVCEB3re5qH7l/iF7f/F7f8iY++k6LxyjjoeKvCtgQ7WtiPqHq/guHboN7jLYgdHcaNEw==}
+  '@lukasrosario/viem@2.17.4-sessionkeys.5':
+    resolution: {integrity: sha512-oE6u74+R/YXqfhcot9q1KCtj2J35VCG7Ku9fA8uicJQeSXAYCPp12vwqVovsd7x0gf5w1mi8jDXRXrnfr8y/yQ==}
     peerDependencies:
       typescript: '>=5.0.4'
     peerDependenciesMeta:
       typescript:
         optional: true
 
-  '@lukasrosario/wagmi-connectors@5.0.25-permissionedkeysalpha.7':
-    resolution: {integrity: sha512-hh+Dy7a9FMSYLGvtxWBa19GcDhmKgw/e8q4DTPFvX77bCbdrC+DW1UBFc2xMD+RTQWtqmNp8dhheZC2y47//lg==}
+  '@lukasrosario/wagmi-connectors@5.0.25-sessionkeys.1':
+    resolution: {integrity: sha512-WISxwKEvfT7MwbNR1u3UTrDuO5PlAi8lJGLf8xJ2BvbuKTYby0S44FeM5MGJVLgTh/EUu4a9kPuEC5QUq96K2g==}
     peerDependencies:
       '@wagmi/core': workspace:*
       typescript: '>=5.0.4'
@@ -1646,20 +1646,20 @@ packages:
       typescript:
         optional: true
 
-  '@lukasrosario/wagmi-core@2.12.1-permissionedkeysalpha.12':
-    resolution: {integrity: sha512-2+YDlQE4TCYL6EIfKKrjvxw0PzLVf4SnRTjeZ8JuslP9OHODHarUrJMO6jOWD62O2f6h/10p6oygRNYVTxZIMA==}
+  '@lukasrosario/wagmi-core@2.12.1-sessionkeys.2':
+    resolution: {integrity: sha512-rDs45FrbroUyj2qlsZY37tZtJZHUlAU7J+i/7krCKIbSoogD8WYt4CGwIu6yTh64SBivgrMUpO7xAwQIjcHhMg==}
     peerDependencies:
       '@tanstack/query-core': '>=5.0.0'
       typescript: '>=5.0.4'
-      viem: npm:@lukasrosario/viem@2.17.4-permissionedkeysalpha.16
+      viem: npm:@lukasrosario/viem@2.17.4-sessionkeys.2
     peerDependenciesMeta:
       '@tanstack/query-core':
         optional: true
       typescript:
         optional: true
 
-  '@lukasrosario/wallet-sdk@4.1.0-demo.6':
-    resolution: {integrity: sha512-rVxWLtM5QrEkUSN6LKUWkGRL6pWm+Q2mJgFkvc/Ir2Sn1avFcQzkNRO+Wg/icUkgFKLfKMBsVG11a1WF3JZkBw==}
+  '@lukasrosario/wallet-sdk@4.1.0-sessionkeys.1':
+    resolution: {integrity: sha512-YJ1VIp+I+fmc4nWK7tiu46w/xeLlCdUDec0gs7izg4JawcH6f2Ltj2kKmVRgCmFxvRPFbTesOu2/V1HOT2gvwA==}
     peerDependencies:
       '@react-native-async-storage/async-storage': '*'
       expo: '*'
@@ -9032,7 +9032,7 @@ snapshots:
     dependencies:
       '@lit-labs/ssr-dom-shim': 1.2.0
 
-  '@lukasrosario/viem@2.17.4-permissionedkeysalpha.16(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8)':
+  '@lukasrosario/viem@2.17.4-sessionkeys.5(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8)':
     dependencies:
       '@adraffy/ens-normalize': 1.10.0
       '@noble/curves': 1.4.0
@@ -9049,17 +9049,17 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@lukasrosario/wagmi-connectors@5.0.25-permissionedkeysalpha.7(@lukasrosario/viem@2.17.4-permissionedkeysalpha.16(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8))(@lukasrosario/wagmi-core@2.12.1-permissionedkeysalpha.12(@lukasrosario/viem@2.17.4-permissionedkeysalpha.16(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8))(@tanstack/query-core@5.45.0)(@types/react@18.3.3)(react@18.3.1)(typescript@5.5.2))(@types/react@18.3.3)(bufferutil@4.0.8)(encoding@0.1.13)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8)':
+  '@lukasrosario/wagmi-connectors@5.0.25-sessionkeys.1(@lukasrosario/viem@2.17.4-sessionkeys.5(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8))(@lukasrosario/wagmi-core@2.12.1-sessionkeys.2(@lukasrosario/viem@2.17.4-sessionkeys.5(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8))(@tanstack/query-core@5.45.0)(@types/react@18.3.3)(react@18.3.1)(typescript@5.5.2))(@types/react@18.3.3)(bufferutil@4.0.8)(encoding@0.1.13)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8)':
     dependencies:
-      '@coinbase/wallet-sdk': '@lukasrosario/wallet-sdk@4.1.0-demo.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)'
+      '@coinbase/wallet-sdk': '@lukasrosario/wallet-sdk@4.1.0-sessionkeys.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)'
       '@metamask/sdk': 0.26.4(bufferutil@4.0.8)(encoding@0.1.13)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(rollup@4.18.0)(utf-8-validate@5.0.10)
       '@safe-global/safe-apps-provider': 0.18.3(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8)
       '@safe-global/safe-apps-sdk': 9.1.0(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8)
-      '@wagmi/core': '@lukasrosario/wagmi-core@2.12.1-permissionedkeysalpha.12(@lukasrosario/viem@2.17.4-permissionedkeysalpha.16(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8))(@tanstack/query-core@5.45.0)(@types/react@18.3.3)(react@18.3.1)(typescript@5.5.2)'
+      '@wagmi/core': '@lukasrosario/wagmi-core@2.12.1-sessionkeys.2(@lukasrosario/viem@2.17.4-sessionkeys.5(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8))(@tanstack/query-core@5.45.0)(@types/react@18.3.3)(react@18.3.1)(typescript@5.5.2)'
       '@walletconnect/ethereum-provider': 2.13.0(@types/react@18.3.3)(bufferutil@4.0.8)(encoding@0.1.13)(ioredis@5.4.1)(react@18.3.1)(utf-8-validate@5.0.10)
       '@walletconnect/modal': 2.6.2(@types/react@18.3.3)(react@18.3.1)
       cbw-sdk: '@coinbase/wallet-sdk@3.9.3'
-      viem: '@lukasrosario/viem@2.17.4-permissionedkeysalpha.16(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8)'
+      viem: '@lukasrosario/viem@2.17.4-sessionkeys.5(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8)'
     optionalDependencies:
       typescript: 5.5.2
     transitivePeerDependencies:
@@ -9090,11 +9090,11 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@lukasrosario/wagmi-core@2.12.1-permissionedkeysalpha.12(@lukasrosario/viem@2.17.4-permissionedkeysalpha.16(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8))(@tanstack/query-core@5.45.0)(@types/react@18.3.3)(react@18.3.1)(typescript@5.5.2)':
+  '@lukasrosario/wagmi-core@2.12.1-sessionkeys.2(@lukasrosario/viem@2.17.4-sessionkeys.5(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8))(@tanstack/query-core@5.45.0)(@types/react@18.3.3)(react@18.3.1)(typescript@5.5.2)':
     dependencies:
       eventemitter3: 5.0.1
       mipd: 0.0.7(typescript@5.5.2)
-      viem: '@lukasrosario/viem@2.17.4-permissionedkeysalpha.16(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8)'
+      viem: '@lukasrosario/viem@2.17.4-sessionkeys.5(bufferutil@4.0.8)(typescript@5.5.2)(utf-8-validate@5.0.10)(zod@3.23.8)'
       zustand: 4.4.1(@types/react@18.3.3)(react@18.3.1)
     optionalDependencies:
       '@tanstack/query-core': 5.45.0
@@ -9104,7 +9104,7 @@ snapshots:
       - immer
       - react
 
-  '@lukasrosario/wallet-sdk@4.1.0-demo.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@lukasrosario/wallet-sdk@4.1.0-sessionkeys.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@noble/ciphers': 0.5.3
       '@noble/curves': 1.5.0

@@ -1,7 +1,7 @@
 {
   "name": "@lukasrosario/wagmi-core",
   "description": "VanillaJS library for Ethereum",
-  "version": "2.12.1-sessionkeys.1",
+  "version": "2.12.1-sessionkeys.4",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -76,7 +76,7 @@
   "peerDependencies": {
     "@tanstack/query-core": ">=5.0.0",
     "typescript": ">=5.0.4",
-    "viem": "npm:@lukasrosario/viem@2.17.4-sessionkeys.1"
+    "viem": "npm:@lukasrosario/viem@2.17.4-sessionkeys.5"
   },
   "peerDependenciesMeta": {
     "@tanstack/query-core": {
