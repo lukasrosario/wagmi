@@ -4,25 +4,21 @@ import { camelCase } from 'change-case'
 import type { FSWatcher, WatchOptions } from 'chokidar'
 import { watch } from 'chokidar'
 import { default as dedent } from 'dedent'
-import { default as fse, ensureDir } from 'fs-extra'
+import { default as fs } from 'fs-extra'
 import { basename, dirname, resolve } from 'pathe'
 import pc from 'picocolors'
-// rome-ignore lint/correctness/noUnusedVariables: <explanation>
 import { type Address, getAddress } from 'viem'
 import { z } from 'zod'
 
-import type { Contract, ContractConfig, Plugin, Watch } from '../config'
-import { fromZodError } from '../errors'
-import * as logger from '../logger'
-import {
-  findConfig,
-  format,
-  getAddressDocString,
-  getIsUsingTypeScript,
-  resolveConfig,
-} from '../utils'
+import type { Contract, ContractConfig, Plugin, Watch } from '../config.js'
+import { fromZodError } from '../errors.js'
+import * as logger from '../logger.js'
+import { findConfig } from '../utils/findConfig.js'
+import { format } from '../utils/format.js'
+import { getAddressDocString } from '../utils/getAddressDocString.js'
+import { getIsUsingTypeScript } from '../utils/getIsUsingTypeScript.js'
+import { resolveConfig } from '../utils/resolveConfig.js'
 
-// rome-ignore lint/correctness/noUnusedVariables: <explanation>
 const Generate = z.object({
   /** Path to config file */
   config: z.string().optional(),
@@ -129,7 +125,7 @@ export async function generate(options: Generate = {}) {
     const content = []
     type Output = {
       plugin: Pick<Plugin, 'name'>
-    } & Awaited<ReturnType<Required<Plugin>['run']>>
+    } & Awaited<ReturnType<NonNullable<Plugin['run']>>>
     const outputs: Output[] = []
     spinner.start('Running plugins')
     for (const plugin of plugins) {
@@ -292,7 +288,7 @@ async function getContract({
   isTypeScript,
 }: ContractConfig & { isTypeScript: boolean }): Promise<Contract> {
   const constAssertion = isTypeScript ? ' as const' : ''
-  const abiName = `${camelCase(name)}ABI`
+  const abiName = `${camelCase(name)}Abi`
   try {
     abi = (await AbiSchema.parseAsync(abi)) as Abi
   } catch (error) {
@@ -319,7 +315,7 @@ async function getContract({
 
   let meta: Contract['meta'] = { abiName }
   if (address) {
-    let resolvedAddress
+    let resolvedAddress: Address | Record<number, Address>
     try {
       const Address = z
         .string()
@@ -398,9 +394,9 @@ async function writeContracts({
   // Format and write output
   const cwd = process.cwd()
   const outPath = resolve(cwd, filename)
-  await ensureDir(dirname(outPath))
+  await fs.ensureDir(dirname(outPath))
   const formatted = await format(code)
-  await fse.writeFile(outPath, formatted)
+  await fs.writeFile(outPath, formatted)
 }
 
 function getBannerContent({ name }: { name: string }) {

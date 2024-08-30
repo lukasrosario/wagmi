@@ -1,10 +1,9 @@
 import { expect, test } from 'vitest'
 
-import { getUnit } from './getUnit'
+import { getUnit } from './getUnit.js'
 
 test('default', () => {
-  expect(getUnit('ether')).toMatchInlineSnapshot('18')
-  expect(getUnit('gwei')).toMatchInlineSnapshot('9')
+  expect(getUnit(1)).toMatchInlineSnapshot('1')
   expect(getUnit('wei')).toMatchInlineSnapshot('0')
-  expect(getUnit(3)).toMatchInlineSnapshot('3')
+  expect(getUnit('ether')).toMatchInlineSnapshot('18')
 })

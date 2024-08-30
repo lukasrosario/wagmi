@@ -1,284 +1,531 @@
 import type {
-  CoinbaseWalletProvider,
   CoinbaseWalletSDK,
+  Preference,
+  ProviderInterface,
 } from '@coinbase/wallet-sdk'
-import type { CoinbaseWalletSDKOptions } from '@coinbase/wallet-sdk/dist/CoinbaseWalletSDK'
 import {
-  type Address,
-  ProviderRpcError,
+  ChainNotConfiguredError,
+  type Connector,
+  createConnector,
+} from '@wagmi/core'
+import type { Compute, Mutable, Omit } from '@wagmi/core/internal'
+import type {
+  CoinbaseWalletProvider as CBW_Provider,
+  CoinbaseWalletSDK as CBW_SDK,
+} from 'cbw-sdk'
+import {
+  type AddEthereumChainParameter,
+  type Hex,
+  type ProviderRpcError,
   SwitchChainError,
   UserRejectedRequestError,
-  createWalletClient,
-  custom,
   getAddress,
   numberToHex,
 } from 'viem'
-import type { Chain } from 'viem/chains'
 
-import { Connector } from './base'
-import { ChainNotConfiguredForConnectorError } from './errors'
-import type { WalletClient } from './types'
-import { normalizeChainId } from './utils/normalizeChainId'
+type Version = '3' | '4'
 
-type Options = Omit<CoinbaseWalletSDKOptions, 'reloadOnDisconnect'> & {
+export type CoinbaseWalletParameters<version extends Version = '3'> =
+  version extends '4'
+    ? Compute<
+        {
+          headlessMode?: false | undefined
+          /** Coinbase Wallet SDK version */
+          version?: version | '3' | undefined
+        } & Version4Parameters
+      >
+    : Compute<
+        {
+          /**
+           * @deprecated `headlessMode` will be removed in the next major version. Upgrade to `version: '4'`.
+           */
+          headlessMode?: true | undefined
+          /**
+           * Coinbase Wallet SDK version
+           * @deprecated Version 3 will be removed in the next major version. Upgrade to `version: '4'`.
+           * @default '4'
+           */
+          version?: version | '4' | undefined
+        } & Version3Parameters
+      >
+
+coinbaseWallet.type = 'coinbaseWallet' as const
+export function coinbaseWallet<version extends Version>(
+  parameters: CoinbaseWalletParameters<version> = {} as any,
+): version extends '4'
+  ? ReturnType<typeof version4>
+  : ReturnType<typeof version3> {
+  if (parameters.version === '3' || parameters.headlessMode)
+    return version3(parameters as Version3Parameters) as any
+  return version4(parameters as Version4Parameters) as any
+}
+
+type Version4Parameters = Mutable<
+  Omit<
+    ConstructorParameters<typeof CoinbaseWalletSDK>[0],
+    'appChainIds' // set via wagmi config
+  > & {
+    /**
+     * Preference for the type of wallet to display.
+     * @default 'all'
+     */
+    preference?: Preference['options'] | undefined
+  }
+>
+
+function version4(parameters: Version4Parameters) {
+  type Provider = ProviderInterface & {
+    // for backwards compatibility
+    close?(): void
+  }
+
+  let sdk: CoinbaseWalletSDK | undefined
+  let walletProvider: Provider | undefined
+
+  let accountsChanged: Connector['onAccountsChanged'] | undefined
+  let chainChanged: Connector['onChainChanged'] | undefined
+  let disconnect: Connector['onDisconnect'] | undefined
+
+  return createConnector<Provider>((config) => ({
+    id: 'coinbaseWalletSDK',
+    name: 'Coinbase Wallet',
+    supportsSimulation: true,
+    type: coinbaseWallet.type,
+    async connect({ chainId } = {}) {
+      try {
+        const provider = await this.getProvider()
+        const accounts = (
+          (await provider.request({
+            method: 'eth_requestAccounts',
+          })) as string[]
+        ).map((x) => getAddress(x))
+
+        if (!accountsChanged) {
+          accountsChanged = this.onAccountsChanged.bind(this)
+          provider.on('accountsChanged', accountsChanged)
+        }
+        if (!chainChanged) {
+          chainChanged = this.onChainChanged.bind(this)
+          provider.on('chainChanged', chainChanged)
+        }
+        if (!disconnect) {
+          disconnect = this.onDisconnect.bind(this)
+          provider.on('disconnect', disconnect)
+        }
+
+        // Switch to chain if provided
+        let currentChainId = await this.getChainId()
+        if (chainId && currentChainId !== chainId) {
+          const chain = await this.switchChain!({ chainId }).catch((error) => {
+            if (error.code === UserRejectedRequestError.code) throw error
+            return { id: currentChainId }
+          })
+          currentChainId = chain?.id ?? currentChainId
+        }
+
+        return { accounts, chainId: currentChainId }
+      } catch (error) {
+        if (
+          /(user closed modal|accounts received is empty|user denied account|request rejected)/i.test(
+            (error as Error).message,
+          )
+        )
+          throw new UserRejectedRequestError(error as Error)
+        throw error
+      }
+    },
+    async disconnect() {
+      const provider = await this.getProvider()
+
+      if (accountsChanged) {
+        provider.removeListener('accountsChanged', accountsChanged)
+        accountsChanged = undefined
+      }
+      if (chainChanged) {
+        provider.removeListener('chainChanged', chainChanged)
+        chainChanged = undefined
+      }
+      if (disconnect) {
+        provider.removeListener('disconnect', disconnect)
+        disconnect = undefined
+      }
+
+      provider.disconnect()
+      provider.close?.()
+    },
+    async getAccounts() {
+      const provider = await this.getProvider()
+      return (
+        (await provider.request({
+          method: 'eth_accounts',
+        })) as string[]
+      ).map((x) => getAddress(x))
+    },
+    async getChainId() {
+      const provider = await this.getProvider()
+      const chainId = await provider.request({
+        method: 'eth_chainId',
+      })
+      return Number(chainId)
+    },
+    async getProvider() {
+      if (!walletProvider) {
+        // Unwrapping import for Vite compatibility.
+        // See: https://github.com/vitejs/vite/issues/9703
+        const CoinbaseWalletSDK = await (async () => {
+          const { default: SDK } = await import('@coinbase/wallet-sdk')
+          if (typeof SDK !== 'function' && typeof SDK.default === 'function')
+            return SDK.default
+          return SDK as unknown as typeof SDK.default
+        })()
+
+        sdk = new CoinbaseWalletSDK({
+          ...parameters,
+          appChainIds: config.chains.map((x) => x.id),
+        })
+
+        walletProvider = sdk.makeWeb3Provider({
+          ...parameters,
+          options: parameters.preference ?? 'all',
+        })
+      }
+
+      return walletProvider
+    },
+    async isAuthorized() {
+      try {
+        const accounts = await this.getAccounts()
+        return !!accounts.length
+      } catch {
+        return false
+      }
+    },
+    async switchChain({ addEthereumChainParameter, chainId }) {
+      const chain = config.chains.find((chain) => chain.id === chainId)
+      if (!chain) throw new SwitchChainError(new ChainNotConfiguredError())
+
+      const provider = await this.getProvider()
+
+      try {
+        await provider.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: numberToHex(chain.id) }],
+        })
+        return chain
+      } catch (error) {
+        // Indicates chain is not added to provider
+        if ((error as ProviderRpcError).code === 4902) {
+          try {
+            let blockExplorerUrls: string[] | undefined
+            if (addEthereumChainParameter?.blockExplorerUrls)
+              blockExplorerUrls = addEthereumChainParameter.blockExplorerUrls
+            else
+              blockExplorerUrls = chain.blockExplorers?.default.url
+                ? [chain.blockExplorers?.default.url]
+                : []
+
+            let rpcUrls: readonly string[]
+            if (addEthereumChainParameter?.rpcUrls?.length)
+              rpcUrls = addEthereumChainParameter.rpcUrls
+            else rpcUrls = [chain.rpcUrls.default?.http[0] ?? '']
+
+            const addEthereumChain = {
+              blockExplorerUrls,
+              chainId: numberToHex(chainId),
+              chainName: addEthereumChainParameter?.chainName ?? chain.name,
+              iconUrls: addEthereumChainParameter?.iconUrls,
+              nativeCurrency:
+                addEthereumChainParameter?.nativeCurrency ??
+                chain.nativeCurrency,
+              rpcUrls,
+            } satisfies AddEthereumChainParameter
+
+            await provider.request({
+              method: 'wallet_addEthereumChain',
+              params: [addEthereumChain],
+            })
+
+            return chain
+          } catch (error) {
+            throw new UserRejectedRequestError(error as Error)
+          }
+        }
+
+        throw new SwitchChainError(error as Error)
+      }
+    },
+    onAccountsChanged(accounts) {
+      if (accounts.length === 0) this.onDisconnect()
+      else
+        config.emitter.emit('change', {
+          accounts: accounts.map((x) => getAddress(x)),
+        })
+    },
+    onChainChanged(chain) {
+      const chainId = Number(chain)
+      config.emitter.emit('change', { chainId })
+    },
+    async onDisconnect(_error) {
+      config.emitter.emit('disconnect')
+
+      const provider = await this.getProvider()
+      if (accountsChanged) {
+        provider.removeListener('accountsChanged', accountsChanged)
+        accountsChanged = undefined
+      }
+      if (chainChanged) {
+        provider.removeListener('chainChanged', chainChanged)
+        chainChanged = undefined
+      }
+      if (disconnect) {
+        provider.removeListener('disconnect', disconnect)
+        disconnect = undefined
+      }
+    },
+  }))
+}
+
+type Version3Parameters = Mutable<
+  Omit<
+    ConstructorParameters<typeof CBW_SDK>[0],
+    'reloadOnDisconnect' // remove property since TSDoc says default is `true`
+  >
+> & {
   /**
    * Fallback Ethereum JSON RPC URL
    * @default ""
    */
-  jsonRpcUrl?: string
+  jsonRpcUrl?: string | undefined
   /**
    * Fallback Ethereum Chain ID
    * @default 1
    */
-  chainId?: number
+  chainId?: number | undefined
   /**
    * Whether or not to reload dapp automatically after disconnect.
+   * @default false
    */
-  reloadOnDisconnect?: boolean
+  reloadOnDisconnect?: boolean | undefined
 }
 
-export class CoinbaseWalletConnector extends Connector<
-  CoinbaseWalletProvider,
-  Options
-> {
-  readonly id = 'coinbaseWallet'
-  readonly name = 'Coinbase Wallet'
-  readonly ready = true
+function version3(parameters: Version3Parameters) {
+  const reloadOnDisconnect = false
 
-  #client?: CoinbaseWalletSDK
-  #provider?: CoinbaseWalletProvider
+  type Provider = CBW_Provider
 
-  constructor({ chains, options }: { chains?: Chain[]; options: Options }) {
-    super({
-      chains,
-      options: {
-        reloadOnDisconnect: false,
-        ...options,
-      },
-    })
-  }
+  let sdk: CBW_SDK | undefined
+  let walletProvider: Provider | undefined
 
-  async connect({ chainId }: { chainId?: number } = {}) {
-    try {
-      const provider = await this.getProvider()
-      provider.on('accountsChanged', this.onAccountsChanged)
-      provider.on('chainChanged', this.onChainChanged)
-      provider.on('disconnect', this.onDisconnect)
+  let accountsChanged: Connector['onAccountsChanged'] | undefined
+  let chainChanged: Connector['onChainChanged'] | undefined
+  let disconnect: Connector['onDisconnect'] | undefined
 
-      this.emit('message', { type: 'connecting' })
+  return createConnector<Provider>((config) => ({
+    id: 'coinbaseWalletSDK',
+    name: 'Coinbase Wallet',
+    supportsSimulation: true,
+    type: coinbaseWallet.type,
+    async connect({ chainId } = {}) {
+      try {
+        const provider = await this.getProvider()
+        const accounts = (
+          (await provider.request({
+            method: 'eth_requestAccounts',
+          })) as string[]
+        ).map((x) => getAddress(x))
 
-      const accounts = await provider.enable()
-      const account = getAddress(accounts[0] as string)
-      // Switch to chain if provided
-      let id = await this.getChainId()
-      let unsupported = this.isChainUnsupported(id)
-      if (chainId && id !== chainId) {
-        const chain = await this.switchChain(chainId)
-        id = chain.id
-        unsupported = this.isChainUnsupported(id)
-      }
-
-      return {
-        account,
-        chain: { id, unsupported },
-      }
-    } catch (error) {
-      if (
-        /(user closed modal|accounts received is empty)/i.test(
-          (error as Error).message,
-        )
-      )
-        throw new UserRejectedRequestError(error as Error)
-      throw error
-    }
-  }
-
-  async disconnect() {
-    if (!this.#provider) return
-
-    const provider = await this.getProvider()
-    provider.removeListener('accountsChanged', this.onAccountsChanged)
-    provider.removeListener('chainChanged', this.onChainChanged)
-    provider.removeListener('disconnect', this.onDisconnect)
-    provider.disconnect()
-    provider.close()
-  }
-
-  async getAccount() {
-    const provider = await this.getProvider()
-    const accounts = await provider.request<Address[]>({
-      method: 'eth_accounts',
-    })
-    // return checksum address
-    return getAddress(accounts[0] as string)
-  }
-
-  async getChainId() {
-    const provider = await this.getProvider()
-    const chainId = normalizeChainId(provider.chainId)
-    return chainId
-  }
-
-  async getProvider() {
-    if (!this.#provider) {
-      let CoinbaseWalletSDK = (await import('@coinbase/wallet-sdk')).default
-      // Workaround for Vite dev import errors
-      // https://github.com/vitejs/vite/issues/7112
-      if (
-        typeof CoinbaseWalletSDK !== 'function' &&
-        // @ts-expect-error This import error is not visible to TypeScript
-        typeof CoinbaseWalletSDK.default === 'function'
-      )
-        CoinbaseWalletSDK = (
-          CoinbaseWalletSDK as unknown as { default: typeof CoinbaseWalletSDK }
-        ).default
-      this.#client = new CoinbaseWalletSDK(this.options)
-
-      /**
-       * Mock implementations to retrieve private `walletExtension` method
-       * from the Coinbase Wallet SDK.
-       */
-      abstract class WalletProvider {
-        // https://github.com/coinbase/coinbase-wallet-sdk/blob/b4cca90022ffeb46b7bbaaab9389a33133fe0844/packages/wallet-sdk/src/provider/CoinbaseWalletProvider.ts#L927-L936
-        abstract getChainId(): number
-      }
-      abstract class Client {
-        // https://github.com/coinbase/coinbase-wallet-sdk/blob/b4cca90022ffeb46b7bbaaab9389a33133fe0844/packages/wallet-sdk/src/CoinbaseWalletSDK.ts#L233-L235
-        abstract get walletExtension(): WalletProvider | undefined
-      }
-      const walletExtensionChainId = (
-        this.#client as unknown as Client
-      ).walletExtension?.getChainId()
-
-      const chain =
-        this.chains.find((chain) =>
-          this.options.chainId
-            ? chain.id === this.options.chainId
-            : chain.id === walletExtensionChainId,
-        ) || this.chains[0]
-      const chainId = this.options.chainId || chain?.id
-      const jsonRpcUrl =
-        this.options.jsonRpcUrl || chain?.rpcUrls.default.http[0]
-
-      this.#provider = this.#client.makeWeb3Provider(jsonRpcUrl, chainId)
-    }
-    return this.#provider
-  }
-
-  async getWalletClient({
-    chainId,
-  }: { chainId?: number } = {}): Promise<WalletClient> {
-    const [provider, account] = await Promise.all([
-      this.getProvider(),
-      this.getAccount(),
-    ])
-    const chain = this.chains.find((x) => x.id === chainId)
-    if (!provider) throw new Error('provider is required.')
-    return createWalletClient({
-      account,
-      chain,
-      transport: custom(provider),
-    })
-  }
-
-  async isAuthorized() {
-    try {
-      const account = await this.getAccount()
-      return !!account
-    } catch {
-      return false
-    }
-  }
-
-  async switchChain(chainId: number) {
-    const provider = await this.getProvider()
-    const id = numberToHex(chainId)
-
-    try {
-      await provider.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: id }],
-      })
-      return (
-        this.chains.find((x) => x.id === chainId) ?? {
-          id: chainId,
-          name: `Chain ${id}`,
-          network: `${id}`,
-          nativeCurrency: { name: 'Ether', decimals: 18, symbol: 'ETH' },
-          rpcUrls: { default: { http: [''] }, public: { http: [''] } },
+        if (!accountsChanged) {
+          accountsChanged = this.onAccountsChanged.bind(this)
+          provider.on('accountsChanged', accountsChanged)
         }
-      )
-    } catch (error) {
-      const chain = this.chains.find((x) => x.id === chainId)
-      if (!chain)
-        throw new ChainNotConfiguredForConnectorError({
-          chainId,
-          connectorId: this.id,
-        })
+        if (!chainChanged) {
+          chainChanged = this.onChainChanged.bind(this)
+          provider.on('chainChanged', chainChanged)
+        }
+        if (!disconnect) {
+          disconnect = this.onDisconnect.bind(this)
+          provider.on('disconnect', disconnect)
+        }
 
-      // Indicates chain is not added to provider
-      if ((error as ProviderRpcError).code === 4902) {
-        try {
-          await provider.request({
-            method: 'wallet_addEthereumChain',
-            params: [
-              {
-                chainId: id,
-                chainName: chain.name,
-                nativeCurrency: chain.nativeCurrency,
-                rpcUrls: [chain.rpcUrls.public?.http[0] ?? ''],
-                blockExplorerUrls: this.getBlockExplorerUrls(chain),
-              },
-            ],
+        // Switch to chain if provided
+        let currentChainId = await this.getChainId()
+        if (chainId && currentChainId !== chainId) {
+          const chain = await this.switchChain!({ chainId }).catch((error) => {
+            if (error.code === UserRejectedRequestError.code) throw error
+            return { id: currentChainId }
           })
-          return chain
-        } catch (error) {
-          throw new UserRejectedRequestError(error as Error)
+          currentChainId = chain?.id ?? currentChainId
         }
+
+        return { accounts, chainId: currentChainId }
+      } catch (error) {
+        if (
+          /(user closed modal|accounts received is empty|user denied account)/i.test(
+            (error as Error).message,
+          )
+        )
+          throw new UserRejectedRequestError(error as Error)
+        throw error
+      }
+    },
+    async disconnect() {
+      const provider = await this.getProvider()
+
+      if (accountsChanged) {
+        provider.removeListener('accountsChanged', accountsChanged)
+        accountsChanged = undefined
+      }
+      if (chainChanged) {
+        provider.removeListener('chainChanged', chainChanged)
+        chainChanged = undefined
+      }
+      if (disconnect) {
+        provider.removeListener('disconnect', disconnect)
+        disconnect = undefined
       }
 
-      throw new SwitchChainError(error as Error)
-    }
-  }
+      provider.disconnect()
+      provider.close()
+    },
+    async getAccounts() {
+      const provider = await this.getProvider()
+      return (
+        await provider.request<string[]>({
+          method: 'eth_accounts',
+        })
+      ).map((x) => getAddress(x))
+    },
+    async getChainId() {
+      const provider = await this.getProvider()
+      const chainId = await provider.request<Hex>({
+        method: 'eth_chainId',
+      })
+      return Number(chainId)
+    },
+    async getProvider() {
+      if (!walletProvider) {
+        // Unwrapping import for Vite compatibility.
+        // See: https://github.com/vitejs/vite/issues/9703
+        const CoinbaseWalletSDK = await (async () => {
+          const { default: SDK } = await import('cbw-sdk')
+          if (typeof SDK !== 'function' && typeof SDK.default === 'function')
+            return SDK.default
+          return SDK as unknown as typeof SDK.default
+        })()
 
-  async watchAsset({
-    address,
-    decimals = 18,
-    image,
-    symbol,
-  }: {
-    address: string
-    decimals?: number
-    image?: string
-    symbol: string
-  }) {
-    const provider = await this.getProvider()
-    return provider.request<boolean>({
-      method: 'wallet_watchAsset',
-      params: {
-        type: 'ERC20',
-        options: {
-          address,
-          decimals,
-          image,
-          symbol,
-        },
-      },
-    })
-  }
+        sdk = new CoinbaseWalletSDK({ ...parameters, reloadOnDisconnect })
 
-  protected onAccountsChanged = (accounts: string[]) => {
-    if (accounts.length === 0) this.emit('disconnect')
-    else this.emit('change', { account: getAddress(accounts[0] as string) })
-  }
+        // Force types to retrieve private `walletExtension` method from the Coinbase Wallet SDK.
+        const walletExtensionChainId = (
+          sdk as unknown as {
+            get walletExtension(): { getChainId(): number } | undefined
+          }
+        ).walletExtension?.getChainId()
 
-  protected onChainChanged = (chainId: number | string) => {
-    const id = normalizeChainId(chainId)
-    const unsupported = this.isChainUnsupported(id)
-    this.emit('change', { chain: { id, unsupported } })
-  }
+        const chain =
+          config.chains.find((chain) =>
+            parameters.chainId
+              ? chain.id === parameters.chainId
+              : chain.id === walletExtensionChainId,
+          ) || config.chains[0]
+        const chainId = parameters.chainId || chain?.id
+        const jsonRpcUrl =
+          parameters.jsonRpcUrl || chain?.rpcUrls.default.http[0]
 
-  protected onDisconnect = () => {
-    this.emit('disconnect')
-  }
+        walletProvider = sdk.makeWeb3Provider(jsonRpcUrl, chainId)
+      }
+
+      return walletProvider
+    },
+    async isAuthorized() {
+      try {
+        const accounts = await this.getAccounts()
+        return !!accounts.length
+      } catch {
+        return false
+      }
+    },
+    async switchChain({ addEthereumChainParameter, chainId }) {
+      const chain = config.chains.find((chain) => chain.id === chainId)
+      if (!chain) throw new SwitchChainError(new ChainNotConfiguredError())
+
+      const provider = await this.getProvider()
+
+      try {
+        await provider.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: numberToHex(chain.id) }],
+        })
+        return chain
+      } catch (error) {
+        // Indicates chain is not added to provider
+        if ((error as ProviderRpcError).code === 4902) {
+          try {
+            let blockExplorerUrls: string[] | undefined
+            if (addEthereumChainParameter?.blockExplorerUrls)
+              blockExplorerUrls = addEthereumChainParameter.blockExplorerUrls
+            else
+              blockExplorerUrls = chain.blockExplorers?.default.url
+                ? [chain.blockExplorers?.default.url]
+                : []
+
+            let rpcUrls: readonly string[]
+            if (addEthereumChainParameter?.rpcUrls?.length)
+              rpcUrls = addEthereumChainParameter.rpcUrls
+            else rpcUrls = [chain.rpcUrls.default?.http[0] ?? '']
+
+            const addEthereumChain = {
+              blockExplorerUrls,
+              chainId: numberToHex(chainId),
+              chainName: addEthereumChainParameter?.chainName ?? chain.name,
+              iconUrls: addEthereumChainParameter?.iconUrls,
+              nativeCurrency:
+                addEthereumChainParameter?.nativeCurrency ??
+                chain.nativeCurrency,
+              rpcUrls,
+            } satisfies AddEthereumChainParameter
+
+            await provider.request({
+              method: 'wallet_addEthereumChain',
+              params: [addEthereumChain],
+            })
+
+            return chain
+          } catch (error) {
+            throw new UserRejectedRequestError(error as Error)
+          }
+        }
+
+        throw new SwitchChainError(error as Error)
+      }
+    },
+    onAccountsChanged(accounts) {
+      if (accounts.length === 0) this.onDisconnect()
+      else
+        config.emitter.emit('change', {
+          accounts: accounts.map((x) => getAddress(x)),
+        })
+    },
+    onChainChanged(chain) {
+      const chainId = Number(chain)
+      config.emitter.emit('change', { chainId })
+    },
+    async onDisconnect(_error) {
+      config.emitter.emit('disconnect')
+
+      const provider = await this.getProvider()
+      if (accountsChanged) {
+        provider.removeListener('accountsChanged', accountsChanged)
+        accountsChanged = undefined
+      }
+      if (chainChanged) {
+        provider.removeListener('chainChanged', chainChanged)
+        chainChanged = undefined
+      }
+      if (disconnect) {
+        provider.removeListener('disconnect', disconnect)
+        disconnect = undefined
+      }
+    },
+  }))
 }

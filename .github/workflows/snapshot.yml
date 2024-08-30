@@ -1,21 +1,32 @@
 name: Snapshot
-
-on: workflow_dispatch
+on:
+  workflow_dispatch:
 
 jobs:
   snapshot:
-    name: Publish Snapshot
+    name: Release snapshot version
+    permissions:
+      contents: write
+      id-token: write
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Clone repository
+        uses: actions/checkout@v4
 
       - name: Install dependencies
-        uses: ./.github/actions/install-dependencies
+        uses: wevm/actions/.github/actions/pnpm@main
 
-      - name: Publish snapshots
-        uses: seek-oss/changesets-snapshot@v0
-        with:
-          pre-publish: pnpm build
+      - name: Publish Snapshots
+        continue-on-error: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          snapshot=$(git branch --show-current | tr -cs '[:alnum:]-' '-' | tr '[:upper:]' '[:lower:]' | sed 's/-$//')
+          npm config set "//registry.npmjs.org/:_authToken" "$NPM_TOKEN"
+          pnpm clean
+          pnpm changeset version --no-git-tag --snapshot $snapshot
+          pnpm changeset:prepublish
+          pnpm changeset publish --no-git-tag --snapshot $snapshot --tag $snapshot

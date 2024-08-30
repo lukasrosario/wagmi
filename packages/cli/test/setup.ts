@@ -1,11 +1,10 @@
-import { resolve } from 'pathe'
+import { homedir } from 'node:os'
+import { default as fs } from 'fs-extra'
+import { join } from 'pathe'
 import { vi } from 'vitest'
 
-const cliPath = resolve(process.cwd(), 'packages/cli/src/')
-const cliPluginsPath = resolve(process.cwd(), 'packages/cli/src/plugins')
-
-vi.mock('@wagmi/cli', async () => vi.importActual(cliPath))
-vi.mock('@wagmi/cli/plugins', async () => vi.importActual(cliPluginsPath))
+const cacheDir = join(homedir(), '.wagmi-cli/plugins/fetch/cache')
+await fs.ensureDir(cacheDir)
 
 vi.mock('ora', async () => {
   function ora() {
@@ -13,11 +12,13 @@ vi.mock('ora', async () => {
       #text: string | undefined
 
       start(text: string | undefined = 'start') {
+        // biome-ignore lint/suspicious/noConsoleLog: console.log is used for logging
         console.log(`- ${text}`)
         this.#text = text
       }
 
       succeed(text: string | undefined = this.#text ?? 'succeed') {
+        // biome-ignore lint/suspicious/noConsoleLog: console.log is used for logging
         console.log(`✔ ${text}`)
         this.#text = undefined
       }
@@ -31,22 +32,6 @@ vi.mock('ora', async () => {
   }
   return {
     default: ora,
-  }
-})
-
-vi.mock('picocolors', async () => {
-  function pass(input: string | number | null | undefined) {
-    return input
-  }
-  return {
-    default: {
-      blue: pass,
-      gray: pass,
-      green: pass,
-      red: pass,
-      white: pass,
-      yellow: pass,
-    },
   }
 })
 

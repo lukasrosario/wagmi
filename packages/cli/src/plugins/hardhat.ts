@@ -1,24 +1,17 @@
-import dedent from 'dedent'
 import { execa } from 'execa'
-import { default as fse } from 'fs-extra'
-import { globby } from 'globby'
+import { fdir } from 'fdir'
+import { default as fs } from 'fs-extra'
 import { basename, extname, join, resolve } from 'pathe'
 import pc from 'picocolors'
 
-import type { ContractConfig, Plugin } from '../config'
-import * as logger from '../logger'
-import type { RequiredBy } from '../types'
-
-import {
-  getInstallCommand,
-  getIsPackageInstalled,
-  getPackageManager,
-} from '../utils'
-import type { HardhatResolved } from './'
+import type { ContractConfig, Plugin } from '../config.js'
+import * as logger from '../logger.js'
+import type { Compute, RequiredBy } from '../types.js'
+import { getIsPackageInstalled, getPackageManager } from '../utils/packages.js'
 
 const defaultExcludes = ['build-info/**', '*.dbg.json']
 
-type HardhatConfig<TProject extends string> = {
+export type HardhatConfig = {
   /**
    * Project's artifacts directory.
    *
@@ -26,59 +19,40 @@ type HardhatConfig<TProject extends string> = {
    *
    * @default 'artifacts/'
    */
-  artifacts?: string
-  /**
-   * Mapping of addresses to attach to artifacts.
-   *
-   * ---
-   *
-   * Adding the following declaration to your config file for strict deployment names:
-   *
-   * ```ts
-   * declare module '@wagmi/cli/plugins' {
-   *   export interface Hardhat {
-   *     deployments: {
-   *       ['../hello_hardhat']: 'Counter'
-   *       // ^? Path to project  ^? Contract names
-   *     }
-   *   }
-   * }
-   * ```
-   *
-   * TODO: `@wagmi/cli` should generate this file in the future
-   */
-  deployments?: {
-    [_ in HardhatResolved<TProject>['deployments']]: ContractConfig['address']
-  }
+  artifacts?: string | undefined
+  /** Mapping of addresses to attach to artifacts. */
+  deployments?: { [key: string]: ContractConfig['address'] } | undefined
   /** Artifact files to exclude. */
-  exclude?: string[]
+  exclude?: string[] | undefined
   /** Commands to run */
-  commands?: {
-    /**
-     * Remove build artifacts and cache directories on start up.
-     *
-     * @default `${packageManger} hardhat clean`
-     */
-    clean?: string | boolean
-    /**
-     * Build Hardhat project before fetching artifacts.
-     *
-     * @default `${packageManger} hardhat compile`
-     */
-    build?: string | boolean
-    /**
-     * Command to run when watched file or directory is changed.
-     *
-     * @default `${packageManger} hardhat compile`
-     */
-    rebuild?: string | boolean
-  }
+  commands?:
+    | {
+        /**
+         * Remove build artifacts and cache directories on start up.
+         *
+         * @default `${packageManger} hardhat clean`
+         */
+        clean?: string | boolean | undefined
+        /**
+         * Build Hardhat project before fetching artifacts.
+         *
+         * @default `${packageManger} hardhat compile`
+         */
+        build?: string | boolean | undefined
+        /**
+         * Command to run when watched file or directory is changed.
+         *
+         * @default `${packageManger} hardhat compile`
+         */
+        rebuild?: string | boolean | undefined
+      }
+    | undefined
   /** Artifact files to include. */
-  include?: string[]
+  include?: string[] | undefined
   /** Optional prefix to prepend to artifact names. */
-  namePrefix?: string
+  namePrefix?: string | undefined
   /** Path to Hardhat project. */
-  project: TProject
+  project: string
   /**
    * Project's artifacts directory.
    *
@@ -86,30 +60,31 @@ type HardhatConfig<TProject extends string> = {
    *
    * @default 'contracts/'
    */
-  sources?: string
+  sources?: string | undefined
 }
 
-type HardhatResult = RequiredBy<Plugin, 'contracts' | 'validate' | 'watch'>
+type HardhatResult = Compute<
+  RequiredBy<Plugin, 'contracts' | 'validate' | 'watch'>
+>
 
-/**
- * Resolves ABIs from [Hardhat](https://github.com/NomicFoundation/hardhat) project.
- */
-export function hardhat<TProject extends string>({
-  artifacts = 'artifacts',
-  deployments = {},
-  exclude = defaultExcludes,
-  commands = {},
-  include = ['*.json'],
-  namePrefix = '',
-  project: project_,
-  sources = 'contracts',
-}: HardhatConfig<TProject>): HardhatResult {
+/** Resolves ABIs from [Hardhat](https://github.com/NomicFoundation/hardhat) project. */
+export function hardhat(config: HardhatConfig): HardhatResult {
+  const {
+    artifacts = 'artifacts',
+    deployments = {},
+    exclude = defaultExcludes,
+    commands = {},
+    include = ['*.json'],
+    namePrefix = '',
+    sources = 'contracts',
+  } = config
+
   function getContractName(artifact: { contractName: string }) {
     return `${namePrefix}${artifact.contractName}`
   }
 
   async function getContract(artifactPath: string) {
-    const artifact = await fse.readJSON(artifactPath)
+    const artifact = await fs.readJSON(artifactPath)
     return {
       abi: artifact.abi,
       address: deployments[artifact.contractName],
@@ -117,14 +92,18 @@ export function hardhat<TProject extends string>({
     }
   }
 
-  async function getArtifactPaths(artifactsDirectory: string) {
-    return await globby([
-      ...include.map((x) => `${artifactsDirectory}/**/${x}`),
-      ...exclude.map((x) => `!${artifactsDirectory}/**/${x}`),
-    ])
+  function getArtifactPaths(artifactsDirectory: string) {
+    const crawler = new fdir().withBasePath().globWithOptions(
+      include.map((x) => `${artifactsDirectory}/**/${x}`),
+      {
+        dot: true,
+        ignore: exclude.map((x) => `${artifactsDirectory}/**/${x}`),
+      },
+    )
+    return crawler.crawl(artifactsDirectory).withPromise()
   }
 
-  const project = resolve(process.cwd(), project_)
+  const project = resolve(process.cwd(), config.project)
   const artifactsDirectory = join(project, artifacts)
   const sourcesDirectory = join(project, sources)
 
@@ -147,7 +126,7 @@ export function hardhat<TProject extends string>({
         ).split(' ')
         await execa(command!, options, { cwd: project })
       }
-      if (!fse.pathExistsSync(artifactsDirectory))
+      if (!fs.pathExistsSync(artifactsDirectory))
         throw new Error('Artifacts not found.')
 
       const artifactPaths = await getArtifactPaths(artifactsDirectory)
@@ -162,7 +141,7 @@ export function hardhat<TProject extends string>({
     name: 'Hardhat',
     async validate() {
       // Check that project directory exists
-      if (!(await fse.pathExists(project)))
+      if (!(await fs.pathExists(project)))
         throw new Error(`Hardhat project ${pc.gray(project)} not found.`)
 
       // Check that `hardhat` is installed
@@ -172,11 +151,7 @@ export function hardhat<TProject extends string>({
         cwd: project,
       })
       if (isPackageInstalled) return
-      const [packageManager, command] = await getInstallCommand(packageName)
-      throw new Error(dedent`
-        ${packageName} must be installed to use Hardhat plugin.
-        To install, run: ${packageManager} ${command.join(' ')}
-      `)
+      throw new Error(`${packageName} must be installed to use Hardhat plugin.`)
     },
     watch: {
       command: rebuild

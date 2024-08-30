@@ -1,159 +1,375 @@
+import type {
+  MetaMaskSDK,
+  MetaMaskSDKOptions,
+  SDKProvider,
+} from '@metamask/sdk'
 import {
+  ChainNotConfiguredError,
+  type Connector,
+  createConnector,
+} from '@wagmi/core'
+import type {
+  Compute,
+  ExactPartial,
+  RemoveUndefined,
+} from '@wagmi/core/internal'
+import {
+  type AddEthereumChainParameter,
   type Address,
-  ProviderRpcError,
+  type ProviderConnectInfo,
+  type ProviderRpcError,
   ResourceUnavailableRpcError,
+  type RpcError,
+  SwitchChainError,
   UserRejectedRequestError,
   getAddress,
+  numberToHex,
+  withRetry,
+  withTimeout,
 } from 'viem'
-import type { Chain } from 'viem/chains'
 
-import { ConnectorNotFoundError } from './errors'
-import type { InjectedConnectorOptions } from './injected'
-import { InjectedConnector } from './injected'
-import { WindowProvider } from './types'
+export type MetaMaskParameters = Compute<
+  ExactPartial<Omit<MetaMaskSDKOptions, '_source' | 'readonlyRPCMap'>>
+>
 
-export type MetaMaskConnectorOptions = Pick<
-  InjectedConnectorOptions,
-  'shimDisconnect'
-> & {
-  /**
-   * While "disconnected" with `shimDisconnect`, allows user to select a different MetaMask account (than the currently connected account) when trying to connect.
-   */
-  UNSTABLE_shimOnConnectSelectAccount?: boolean
-}
+metaMask.type = 'metaMask' as const
+export function metaMask(parameters: MetaMaskParameters = {}) {
+  type Provider = SDKProvider
+  type Properties = {
+    onConnect(connectInfo: ProviderConnectInfo): void
+    onDisplayUri(uri: string): void
+  }
+  type Listener = Parameters<Provider['on']>[1]
 
-export class MetaMaskConnector extends InjectedConnector {
-  readonly id = 'metaMask'
+  let sdk: MetaMaskSDK
+  let provider: Provider | undefined
+  let providerPromise: Promise<typeof provider>
 
-  protected shimDisconnectKey = `${this.id}.shimDisconnect`
+  let accountsChanged: Connector['onAccountsChanged'] | undefined
+  let chainChanged: Connector['onChainChanged'] | undefined
+  let connect: Connector['onConnect'] | undefined
+  let displayUri: ((uri: string) => void) | undefined
+  let disconnect: Connector['onDisconnect'] | undefined
 
-  #UNSTABLE_shimOnConnectSelectAccount: MetaMaskConnectorOptions['UNSTABLE_shimOnConnectSelectAccount']
+  return createConnector<Provider, Properties>((config) => ({
+    id: 'metaMaskSDK',
+    name: 'MetaMask',
+    type: metaMask.type,
+    async setup() {
+      const provider = await this.getProvider()
+      if (provider && !connect) {
+        connect = this.onConnect.bind(this)
+        provider.on('connect', connect as Listener)
+      }
+    },
+    async connect({ chainId, isReconnecting } = {}) {
+      const provider = await this.getProvider()
+      if (!displayUri) {
+        displayUri = this.onDisplayUri
+        provider.on('display_uri', displayUri as Listener)
+      }
 
-  constructor({
-    chains,
-    options: options_,
-  }: {
-    chains?: Chain[]
-    options?: MetaMaskConnectorOptions
-  } = {}) {
-    const options = {
-      name: 'MetaMask',
-      shimDisconnect: true,
-      getProvider() {
-        function getReady(ethereum?: WindowProvider) {
-          const isMetaMask = !!ethereum?.isMetaMask
-          if (!isMetaMask) return
-          // Brave tries to make itself look like MetaMask
-          // Could also try RPC `web3_clientVersion` if following is unreliable
-          if (ethereum.isBraveWallet && !ethereum._events && !ethereum._state)
-            return
-          if (ethereum.isApexWallet) return
-          if (ethereum.isAvalanche) return
-          if (ethereum.isBitKeep) return
-          if (ethereum.isBlockWallet) return
-          if (ethereum.isCoin98) return
-          if (ethereum.isFordefi) return
-          if (ethereum.isMathWallet) return
-          if (ethereum.isOkxWallet || ethereum.isOKExWallet) return
-          if (ethereum.isOneInchIOSWallet || ethereum.isOneInchAndroidWallet)
-            return
-          if (ethereum.isOpera) return
-          if (ethereum.isPortal) return
-          if (ethereum.isRabby) return
-          if (ethereum.isDefiant) return
-          if (ethereum.isTokenPocket) return
-          if (ethereum.isTokenary) return
-          if (ethereum.isZeal) return
-          if (ethereum.isZerion) return
-          return ethereum
+      let accounts: readonly Address[] = []
+      if (isReconnecting) accounts = await this.getAccounts().catch(() => [])
+
+      try {
+        if (!accounts?.length) {
+          const requestedAccounts = (await sdk.connect()) as string[]
+          accounts = requestedAccounts.map((x) => getAddress(x))
         }
 
-        if (typeof window === 'undefined') return
-        const ethereum = (window as unknown as { ethereum?: WindowProvider })
-          .ethereum
-        if (ethereum?.providers) return ethereum.providers.find(getReady)
-        return getReady(ethereum)
-      },
-      ...options_,
-    }
-    super({ chains, options })
+        // Switch to chain if provided
+        let currentChainId = (await this.getChainId()) as number
+        if (chainId && currentChainId !== chainId) {
+          const chain = await this.switchChain!({ chainId }).catch((error) => {
+            if (error.code === UserRejectedRequestError.code) throw error
+            return { id: currentChainId }
+          })
+          currentChainId = chain?.id ?? currentChainId
+        }
 
-    this.#UNSTABLE_shimOnConnectSelectAccount =
-      options.UNSTABLE_shimOnConnectSelectAccount
-  }
+        if (displayUri) {
+          provider.removeListener('display_uri', displayUri)
+          displayUri = undefined
+        }
 
-  async connect({ chainId }: { chainId?: number } = {}) {
-    try {
+        // Manage EIP-1193 event listeners
+        // https://eips.ethereum.org/EIPS/eip-1193#events
+        if (connect) {
+          provider.removeListener('connect', connect)
+          connect = undefined
+        }
+        if (!accountsChanged) {
+          accountsChanged = this.onAccountsChanged.bind(this)
+          provider.on('accountsChanged', accountsChanged as Listener)
+        }
+        if (!chainChanged) {
+          chainChanged = this.onChainChanged.bind(this)
+          provider.on('chainChanged', chainChanged as Listener)
+        }
+        if (!disconnect) {
+          disconnect = this.onDisconnect.bind(this)
+          provider.on('disconnect', disconnect as Listener)
+        }
+
+        return { accounts, chainId: currentChainId }
+      } catch (err) {
+        const error = err as RpcError
+        if (error.code === UserRejectedRequestError.code)
+          throw new UserRejectedRequestError(error)
+        if (error.code === ResourceUnavailableRpcError.code)
+          throw new ResourceUnavailableRpcError(error)
+        throw error
+      }
+    },
+    async disconnect() {
       const provider = await this.getProvider()
-      if (!provider) throw new ConnectorNotFoundError()
 
-      if (provider.on) {
-        provider.on('accountsChanged', this.onAccountsChanged)
-        provider.on('chainChanged', this.onChainChanged)
-        provider.on('disconnect', this.onDisconnect)
+      // Manage EIP-1193 event listeners
+      if (accountsChanged) {
+        provider.removeListener('accountsChanged', accountsChanged)
+        accountsChanged = undefined
+      }
+      if (chainChanged) {
+        provider.removeListener('chainChanged', chainChanged)
+        chainChanged = undefined
+      }
+      if (disconnect) {
+        provider.removeListener('disconnect', disconnect)
+        disconnect = undefined
+      }
+      if (!connect) {
+        connect = this.onConnect.bind(this)
+        provider.on('connect', connect as Listener)
       }
 
-      this.emit('message', { type: 'connecting' })
+      await sdk.terminate()
+    },
+    async getAccounts() {
+      const provider = await this.getProvider()
+      const accounts = (await provider.request({
+        method: 'eth_accounts',
+      })) as string[]
+      return accounts.map((x) => getAddress(x))
+    },
+    async getChainId() {
+      const provider = await this.getProvider()
+      const chainId =
+        provider.getChainId() ||
+        (await provider?.request({ method: 'eth_chainId' }))
+      return Number(chainId)
+    },
+    async getProvider() {
+      async function initProvider() {
+        // Unwrapping import for Vite compatibility.
+        // See: https://github.com/vitejs/vite/issues/9703
+        const MetaMaskSDK = await (async () => {
+          const { default: SDK } = await import('@metamask/sdk')
+          if (typeof SDK !== 'function' && typeof SDK.default === 'function')
+            return SDK.default
+          return SDK as unknown as typeof SDK.default
+        })()
 
-      // Attempt to show wallet select prompt with `wallet_requestPermissions` when
-      // `shimDisconnect` is active and account is in disconnected state (flag in storage)
-      let account: Address | null = null
-      if (
-        this.#UNSTABLE_shimOnConnectSelectAccount &&
-        this.options?.shimDisconnect &&
-        !this.storage?.getItem(this.shimDisconnectKey)
-      ) {
-        account = await this.getAccount().catch(() => null)
-        const isConnected = !!account
-        if (isConnected)
-          // Attempt to show another prompt for selecting wallet if already connected
-          try {
-            await provider.request({
-              method: 'wallet_requestPermissions',
-              params: [{ eth_accounts: {} }],
-            })
-            // User may have selected a different account so we will need to revalidate here.
-            account = await this.getAccount()
-          } catch (error) {
-            // Not all MetaMask injected providers support `wallet_requestPermissions` (e.g. MetaMask iOS).
-            // Only bubble up error if user rejects request
-            if (this.isUserRejectedRequestError(error))
-              throw new UserRejectedRequestError(error as Error)
-            // Or MetaMask is already open
-            if (
-              (error as ProviderRpcError).code ===
-              new ResourceUnavailableRpcError(error as ProviderRpcError).code
-            )
-              throw error
-          }
-      }
-
-      if (!account) {
-        const accounts = await provider.request({
-          method: 'eth_requestAccounts',
+        sdk = new MetaMaskSDK({
+          _source: 'wagmi',
+          // Workaround cast since MetaMask SDK does not support `'exactOptionalPropertyTypes'`
+          ...(parameters as RemoveUndefined<typeof parameters>),
+          readonlyRPCMap: Object.fromEntries(
+            config.chains.map((chain) => [
+              chain.id,
+              chain.rpcUrls.default.http[0]!,
+            ]),
+          ),
+          dappMetadata: parameters.dappMetadata ?? {},
+          useDeeplink: parameters.useDeeplink ?? true,
         })
-        account = getAddress(accounts[0] as string)
+        await sdk.init()
+        return sdk.getProvider()!
       }
 
-      // Switch to chain if provided
-      let id = await this.getChainId()
-      let unsupported = this.isChainUnsupported(id)
-      if (chainId && id !== chainId) {
-        const chain = await this.switchChain(chainId)
-        id = chain.id
-        unsupported = this.isChainUnsupported(id)
+      if (!provider) {
+        if (!providerPromise) providerPromise = initProvider()
+        provider = await providerPromise
+      }
+      return provider!
+    },
+    async isAuthorized() {
+      try {
+        // MetaMask mobile provider sometimes fails to immediately resolve
+        // JSON-RPC requests on page load
+        const timeout = 200
+        const accounts = await withRetry(
+          () => withTimeout(() => this.getAccounts(), { timeout }),
+          {
+            delay: timeout + 1,
+            retryCount: 3,
+          },
+        )
+        return !!accounts.length
+      } catch {
+        return false
+      }
+    },
+    async switchChain({ addEthereumChainParameter, chainId }) {
+      const provider = await this.getProvider()
+
+      const chain = config.chains.find((x) => x.id === chainId)
+      if (!chain) throw new SwitchChainError(new ChainNotConfiguredError())
+
+      try {
+        await Promise.all([
+          provider.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: numberToHex(chainId) }],
+          }),
+          new Promise<void>((resolve) =>
+            config.emitter.once('change', ({ chainId: currentChainId }) => {
+              if (currentChainId === chainId) resolve()
+            }),
+          ),
+        ])
+        return chain
+      } catch (err) {
+        const error = err as RpcError
+
+        // Indicates chain is not added to provider
+        if (
+          error.code === 4902 ||
+          // Unwrapping for MetaMask Mobile
+          // https://github.com/MetaMask/metamask-mobile/issues/2944#issuecomment-976988719
+          (error as ProviderRpcError<{ originalError?: { code: number } }>)
+            ?.data?.originalError?.code === 4902
+        ) {
+          try {
+            const { default: blockExplorer, ...blockExplorers } =
+              chain.blockExplorers ?? {}
+            let blockExplorerUrls: string[] | undefined
+            if (addEthereumChainParameter?.blockExplorerUrls)
+              blockExplorerUrls = addEthereumChainParameter.blockExplorerUrls
+            else if (blockExplorer)
+              blockExplorerUrls = [
+                blockExplorer.url,
+                ...Object.values(blockExplorers).map((x) => x.url),
+              ]
+
+            let rpcUrls: readonly string[]
+            if (addEthereumChainParameter?.rpcUrls?.length)
+              rpcUrls = addEthereumChainParameter.rpcUrls
+            else rpcUrls = [chain.rpcUrls.default?.http[0] ?? '']
+
+            const addEthereumChain = {
+              blockExplorerUrls,
+              chainId: numberToHex(chainId),
+              chainName: addEthereumChainParameter?.chainName ?? chain.name,
+              iconUrls: addEthereumChainParameter?.iconUrls,
+              nativeCurrency:
+                addEthereumChainParameter?.nativeCurrency ??
+                chain.nativeCurrency,
+              rpcUrls,
+            } satisfies AddEthereumChainParameter
+
+            await provider.request({
+              method: 'wallet_addEthereumChain',
+              params: [addEthereumChain],
+            })
+
+            const currentChainId = await this.getChainId()
+            if (currentChainId !== chainId)
+              throw new UserRejectedRequestError(
+                new Error('User rejected switch after adding network.'),
+              )
+
+            return chain
+          } catch (error) {
+            throw new UserRejectedRequestError(error as Error)
+          }
+        }
+
+        if (error.code === UserRejectedRequestError.code)
+          throw new UserRejectedRequestError(error)
+        throw new SwitchChainError(error)
+      }
+    },
+    async onAccountsChanged(accounts) {
+      // Disconnect if there are no accounts
+      if (accounts.length === 0) this.onDisconnect()
+      // Connect if emitter is listening for connect event (e.g. is disconnected and connects through wallet interface)
+      else if (config.emitter.listenerCount('connect')) {
+        const chainId = (await this.getChainId()).toString()
+        this.onConnect({ chainId })
+      }
+      // Regular change event
+      else
+        config.emitter.emit('change', {
+          accounts: accounts.map((x) => getAddress(x)),
+        })
+    },
+    onChainChanged(chain) {
+      const chainId = Number(chain)
+      config.emitter.emit('change', { chainId })
+    },
+    async onConnect(connectInfo) {
+      const accounts = await this.getAccounts()
+      if (accounts.length === 0) return
+
+      const chainId = Number(connectInfo.chainId)
+      config.emitter.emit('connect', { accounts, chainId })
+
+      const provider = await this.getProvider()
+      if (connect) {
+        provider.removeListener('connect', connect)
+        connect = undefined
+      }
+      if (!accountsChanged) {
+        accountsChanged = this.onAccountsChanged.bind(this)
+        provider.on('accountsChanged', accountsChanged as Listener)
+      }
+      if (!chainChanged) {
+        chainChanged = this.onChainChanged.bind(this)
+        provider.on('chainChanged', chainChanged as Listener)
+      }
+      if (!disconnect) {
+        disconnect = this.onDisconnect.bind(this)
+        provider.on('disconnect', disconnect as Listener)
+      }
+    },
+    async onDisconnect(error) {
+      const provider = await this.getProvider()
+
+      // If MetaMask emits a `code: 1013` error, wait for reconnection before disconnecting
+      // https://github.com/MetaMask/providers/pull/120
+      if (error && (error as RpcError<1013>).code === 1013) {
+        if (provider && !!(await this.getAccounts()).length) return
       }
 
-      if (this.options?.shimDisconnect)
-        this.storage?.setItem(this.shimDisconnectKey, true)
+      // Remove cached SDK properties.
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('MMSDK_cached_address')
+        localStorage.removeItem('MMSDK_cached_chainId')
+      }
 
-      return { account, chain: { id, unsupported }, provider }
-    } catch (error) {
-      if (this.isUserRejectedRequestError(error))
-        throw new UserRejectedRequestError(error as Error)
-      if ((error as ProviderRpcError).code === -32002)
-        throw new ResourceUnavailableRpcError(error as ProviderRpcError)
-      throw error
-    }
-  }
+      config.emitter.emit('disconnect')
+
+      // Manage EIP-1193 event listeners
+      if (!accountsChanged) {
+        accountsChanged = this.onAccountsChanged.bind(this)
+        provider.on('accountsChanged', accountsChanged as Listener)
+      }
+      if (chainChanged) {
+        provider.removeListener('chainChanged', chainChanged)
+        chainChanged = undefined
+      }
+      if (disconnect) {
+        provider.removeListener('disconnect', disconnect)
+        disconnect = undefined
+      }
+      if (!connect) {
+        connect = this.onConnect.bind(this)
+        provider.on('connect', connect as Listener)
+      }
+    },
+    onDisplayUri(uri) {
+      config.emitter.emit('message', { type: 'display_uri', data: uri })
+    },
+  }))
 }

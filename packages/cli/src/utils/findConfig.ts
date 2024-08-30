@@ -1,5 +1,5 @@
 import { findUp } from 'find-up'
-import { default as fse } from 'fs-extra'
+import { default as fs } from 'fs-extra'
 import { resolve } from 'pathe'
 
 // Do not reorder
@@ -11,22 +11,23 @@ const configFiles = [
   'wagmi.config.mts',
 ]
 
-type FindConfig = {
+type FindConfigParameters = {
   /** Config file name */
-  config?: string
+  config?: string | undefined
   /** Config file directory */
-  root?: string
+  root?: string | undefined
 }
 
 /**
  * Resolves path to wagmi CLI config file.
  */
-export async function findConfig({ config, root }: FindConfig = {}) {
+export async function findConfig(parameters: FindConfigParameters = {}) {
+  const { config, root } = parameters
   const rootDir = resolve(root || process.cwd())
   if (config) {
     const path = resolve(rootDir, config)
-    if (fse.pathExistsSync(path)) return path
+    if (fs.pathExistsSync(path)) return path
     return
   }
-  return await findUp(configFiles, { cwd: rootDir })
+  return findUp(configFiles, { cwd: rootDir })
 }
