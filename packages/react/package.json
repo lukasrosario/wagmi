@@ -1,7 +1,7 @@
 {
   "name": "@lukasrosario/wagmi",
   "description": "React Hooks for Ethereum",
-  "version": "2.11.1-sessionkeys.5",
+  "version": "2.11.1-sessionkeys.6",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -86,8 +86,8 @@
   },
   "dependencies": {
     "@wagmi/connectors": "npm:@lukasrosario/wagmi-connectors@5.0.25-sessionkeys.2",
-    "@wagmi/core": "npm:@lukasrosario/wagmi-core@2.12.1-sessionkeys.4",
-    "viem": "npm:@lukasrosario/viem@2.17.4-sessionkeys.5",
+    "@wagmi/core": "npm:@lukasrosario/wagmi-core@2.12.1-sessionkeys.5",
+    "viem": "npm:@lukasrosario/viem@2.17.4-sessionkeys.7",
     "use-sync-external-store": "1.2.0"
   },
   "devDependencies": {
